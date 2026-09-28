@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <title>Money Hunter20</title>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top, #173f5f 0%, #0e283e 35%, #071522 70%, #030910 100%);
+      color: white;
+      min-height: 100vh;
+      padding-bottom: 90px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 700px;
+      margin: auto;
+      padding: 15px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .menu {
+      font-size: 26px;
+    }
+
+    .logo {
+      text-align: center;
+      flex: 1;
+    }
+
+    .logo h1 {
+      font-size: 22px;
+      color: #55d7f0;
+    }
+
+    .logo p {
+      font-size: 10px;
+      color: #aaa;
+      letter-spacing: 2px;
+    }
+
+    .telegram-badge {
+      background: #229ed9;
+      padding: 7px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+    }
+
+    .card {
+      background: rgba(8, 25, 40, 0.9);
+      border: 1px solid rgba(85, 215, 240, .25);
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 15px;
+      box-shadow: 0 0 18px rgba(0, 210, 255, .08);
+    }
+
+    .welcome {
+      text-align: center;
+      border-color: rgba(85, 215, 240, .5);
+    }
+
+    .avatar {
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+
+    .username {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .online {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      background: rgba(0,255,140,.12);
+      color: #36ff9b;
+      font-size: 11px;
+    }
+
+    .balance-card {
+      text-align: center;
+    }
+
+    .balance-label {
+      color: #aaa;
+      font-size: 13px;
+    }
+
+    .balance {
+      font-size: 42px;
+      font-weight: bold;
+      color: #ffd84d;
+      margin: 7px 0;
+      text-shadow: 0 0 15px rgba(255,216,77,.35);
+    }
+
+    .points {
+      color: #55d7f0;
+      font-size: 13px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      margin: 20px 0 10px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .action {
+      background: linear-gradient(145deg, #102e45, #081927);
+      border: 1px solid rgba(85,215,240,.22);
+      border-radius: 18px;
+      padding: 18px 12px;
+      text-align: center;
+    }
+
+    .action-icon {
+      font-size: 30px;
+      margin-bottom: 8px;
+    }
+
+    .action-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .action-text {
+      color: #aaa;
+      font-size: 11px;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      color: #06121b;
+      background: linear-gradient(135deg, #55d7f0, #ffd84d);
+      padding: 11px 18px;
+      border-radius: 12px;
+      font-weight: bold;
+      margin-top: 12px;
+    }
+
+    button:disabled {
+      opacity: .5;
+    }
+
+    .referral-code {
+      width: 100%;
+      background: #030c14;
+      border: 1px solid #24465b;
+      color: white;
+      padding: 12px;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    .status {
+      text-align: center;
+      color: #55d7f0;
+      font-size: 12px;
+      margin: 12px 0;
+    }
+
+    .activity {
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .activity:last-child {
+      border-bottom: 0;
+    }
+
+    .activity small {
+      color: #999;
+    }
+
+    .amount {
+      color: #36ff9b;
+      font-weight: bold;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 70px;
+      background: rgba(3,10,17,.97);
+      border-top: 1px solid rgba(85,215,240,.25);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .nav-item {
+      color: #777;
+      text-align: center;
+      font-size: 11px;
+    }
+
+    .nav-item div {
+      font-size: 23px;
+      margin-bottom: 3px;
+    }
+
+    .nav-item.active {
+      color: #55d7f0;
+    }
+
+    @media(max-width:420px) {
+      .container {
+        padding: 12px;
+      }
+
+      .balance {
+        font-size: 36px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="menu">☰</div>
+
+    <div class="logo">
+      <h1>💰 Money Hunter</h1>
+      <p>WATCH • EARN • WITHDRAW</p>
+    </div>
+
+    <div class="telegram-badge">🚀 Telegram</div>
+  </header>
+
+  <div class="card welcome">
+    <div class="avatar">👤</div>
+    <div class="username" id="username">Telegram User</div>
+    <div class="online">● ONLINE</div>
+  </div>
+
+  <div class="card balance-card">
+    <div class="balance-label">YOUR BALANCE</div>
+    <div class="balance" id="balance">0.00</div>
+    <div class="points">💰 Points / Earnings</div>
+  </div>
+
+  <div class="status" id="status">
+    Connecting to Money Hunter20...
+  </div>
+
+  <div class="section-title">🎮 Earn Money</div>
+
+  <div class="grid">
+
+    <div class="action">
+      <div class="action-icon">📺</div>
+      <div class="action-title">Watch & Earn</div>
+      <div class="action-text">Watch available ads and earn rewards</div>
+      <button onclick="watchAd()">Watch Ad</button>
+    </div>
+
+    <div class="action">
+      <div class="action-icon">🎁</div>
+      <div class="action-title">Daily Bonus</div>
+      <div class="action-text">Claim your daily reward</div>
+      <button onclick="dailyBonus()">Claim</button>
+    </div>
+
+    <div class="action">
+      <div class="action-icon">👥</div>
+      <div class="action-title">Referral</div>
+      <div class="action-text">Invite friends and earn</div>
+      <button onclick="copyReferral()">Copy Code</button>
+    </div>
+
+    <div class="action">
+      <div class="action-icon">💸</div>
+      <div class="action-title">Withdraw</div>
+      <div class="action-text">Request your earnings</div>
+      <button onclick="withdraw()">Withdraw</button>
+    </div>
+
+  </div>
+
+  <div class="card">
+    <h3>👥 Your Referral Code</h3>
+    <input
+      id="referralCode"
+      class="referral-code"
+      readonly
+      value="Loading..."
+    >
+  </div>
+
+  <div class="card">
+    <h3>📊 Recent Activity</h3>
+
+    <div id="activity">
+      <div class="activity">
+        <span>Loading activity...</span>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="bottom-nav">
+
+  <div class="nav-item active">
+    <div>🏠</div>
+    Home
+  </div>
+
+  <div class="nav-item">
+    <div>📺</div>
+    Earn
+  </div>
+
+  <div class="nav-item">
+    <div>👥</div>
+    Refer
+  </div>
+
+  <div class="nav-item">
+    <div>💸</div>
+    Withdraw
+  </div>
+
+</div>
+
+<script>
+
+  // ===============================
+  // Money Hunter20 Backend
+  // ===============================
+
+  const API_URL =
+    "https://money-hunter20-backend.onrender.com";
+
+  let authToken = null;
+  let currentUser = null;
+
+  // ===============================
+  // Telegram
+  // ===============================
+
+  const tg = window.Telegram?.WebApp;
+
+  if (tg) {
+    tg.ready();
+    tg.expand();
+  }
+
+  // ===============================
+  // Telegram Login
+  // ===============================
+
+  async function loginWithTelegram() {
+
+    try {
+
+      if (!tg || !tg.initData) {
+
+        document.getElementById("status").textContent =
+          "⚠️ Open this page from Telegram Mini App";
+
+        return;
+      }
+
+      const response = await fetch(
+        API_URL + "/api/auth/telegram",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            initData: tg.initData
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error || "Telegram login failed"
+        );
+      }
+
+      authToken = data.token;
+      currentUser = data.user;
+
+      localStorage.setItem(
+        "moneyHunterToken",
+        authToken
+      );
+
+      updateUserUI();
+
+      loadActivity();
+
+    } catch (error) {
+
+      console.error(error);
+
+      document.getElementById("status").textContent =
+        "❌ Login failed: " + error.message;
+    }
+  }
+
+  // ===============================
+  // Update UI
+  // ===============================
+
+  function updateUserUI() {
+
+    if (!currentUser) return;
+
+    document.getElementById("username").textContent =
+      currentUser.display_name ||
+      currentUser.username ||
+      "Telegram User";
+
+    document.getElementById("balance").textContent =
+      Number(currentUser.balance || 0).toFixed(2);
+
+    document.getElementById("referralCode").value =
+      currentUser.referral_code || "Not available";
+
+    document.getElementById("status").textContent =
+      "✅ Connected to Money Hunter20";
+  }
+
+  // ===============================
+  // Load Current User
+  // ===============================
+
+  async function loadMe() {
+
+    if (!authToken) return;
+
+    try {
+
+      const response = await fetch(
+        API_URL + "/api/me",
+        {
+          headers: {
+            "Authorization":
+              "Bearer " + authToken
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(
+          data.error || "Unable to load user"
+        );
+      }
+
+      currentUser = data.user;
+
+      updateUserUI();
+
+    } catch (error) {
+
+      console.error(error);
+
+      localStorage.removeItem(
+        "moneyHunterToken"
+      );
+
+      authToken = null;
+
+      loginWithTelegram();
+    }
+  }
+
+  // ===============================
+  // Activity
+  // ===============================
+
+  async function loadActivity() {
+
+    if (!authToken) return;
+
+    try {
+
+      const response = await fetch(
+        API_URL + "/api/activity",
+        {
+          headers: {
+            "Authorization":
+              "Bearer " + authToken
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      if (!data.ok) return;
+
+      const container =
+        document.getElementById("activity");
+
+      if (!data.activities.length) {
+
+        container.innerHTML =
+          '<div class="activity">' +
+          '<span>No activity yet</span>' +
+          '</div>';
+
+        return;
+      }
+
+      container.innerHTML =
+        data.activities.map(item => {
+
+          const amount =
+            Number(item.amount || 0).toFixed(2);
+
+          return `
+            <div class="activity">
+              <span>
+                ${item.description || item.type}
+                <br>
+                <small>${new Date(item.created_at).toLocaleString()}</small>
+              </span>
+              <span class="amount">
+                +${amount}
+              </span>
+            </div>
+          `;
+
+        }).join("");
+
+    } catch (error) {
+
+      console.error(error);
+
+    }
+  }
+
+  // ===============================
+  // Demo Buttons
+  // ===============================
+
+  function watchAd() {
+
+    alert(
+      "📺 Ad system will be connected here.\n\n" +
+      "Next step: Adsterra / Monetag / GigaPub integration."
+    );
+  }
+
+  function dailyBonus() {
+
+    alert(
+      "🎁 Daily Bonus API will be connected next."
+    );
+  }
+
+  function copyReferral() {
+
+    const code =
+      document.getElementById("referralCode").value;
+
+    if (!code || code === "Loading...") return;
+
+    navigator.clipboard.writeText(code);
+
+    alert("✅ Referral code copied!");
+  }
+
+  function withdraw() {
+
+    alert(
+      "💸 Withdrawal system will be connected next."
+    );
+  }
+
+  // ===============================
+  // Start
+  // ===============================
+
+  loginWithTelegram();
+
+</script>
+
+</body>
+</html>
