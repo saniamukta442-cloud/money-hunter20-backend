@@ -407,6 +407,10 @@ app.get("/api/activity", authMiddleware, async (req, res) => {
 // ===============================
 
 app.post("/api/ad/start", authMiddleware, async (req, res) => {
+  console.log("🔥 /api/ad/start called:", {
+  userId: req.user.userId,
+  telegramId: req.user.telegramId
+});
   try {
     const userResult = await pool.query(
       `
@@ -435,8 +439,13 @@ app.post("/api/ad/start", authMiddleware, async (req, res) => {
     }
 
     // Create a unique Monetag event ID
-    const ymid = String(user.telegram_id);
-    await pool.query(
+    const ymid =
+  "mh20_" +
+  crypto.randomUUID();
+
+console.log("🆔 Created Money Hunter20 ad ymid:", ymid);
+
+await pool.query(
       `
       INSERT INTO ad_reward_events
         (
