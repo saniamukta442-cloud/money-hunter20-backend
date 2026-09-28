@@ -7,6 +7,9 @@
   <title>Money Hunter20</title>
 
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src='//libtl.com/sdk.js'
+        data-zone='11762706'
+        data-sdk='show_11762706'></script>
 
   <style>
     * {
@@ -754,13 +757,70 @@
   // Demo Buttons
   // ===============================
 
-  function watchAd() {
+  async function watchAd() {
+
+  if (!authToken || !currentUser) {
+    alert("⚠️ Please open Money Hunter20 from Telegram.");
+    return;
+  }
+
+  if (typeof show_11762706 !== "function") {
+    alert("⏳ Advertisement is still loading. Please try again.");
+    return;
+  }
+
+  const button = document.querySelector(
+    'button[onclick="watchAd()"]'
+  );
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Loading...";
+  }
+
+  try {
+
+    const eventId =
+      "watch_" +
+      currentUser.id +
+      "_" +
+      Date.now();
+
+    await show_11762706({
+      ymid: eventId
+    });
+
+    /*
+      IMPORTANT:
+      Ad completed successfully.
+
+      We will connect the server-side reward
+      endpoint here in the next step.
+    */
 
     alert(
-      "📺 Ad system will be connected here.\n\n" +
-      "Next step: Adsterra / Monetag / GigaPub integration."
+      "✅ Ad completed!\n\n" +
+      "Reward verification is being processed."
     );
+
+  } catch (error) {
+
+    console.error("Monetag error:", error);
+
+    alert(
+      "⚠️ Advertisement could not be displayed.\n" +
+      "Please try again."
+    );
+
+  } finally {
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Watch Ad";
+    }
+
   }
+}
 
   async function dailyBonus() {
 
