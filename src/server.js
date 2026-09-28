@@ -522,6 +522,10 @@ async function initDatabase() {
 
       CREATE INDEX IF NOT EXISTS idx_referrals_referrer_id
         ON referrals(referrer_id);
+        
+            `);
+
+    console.log("Database tables are ready ✅");
 
       console.log("Database tables are ready ✅");
   } catch (error) {
