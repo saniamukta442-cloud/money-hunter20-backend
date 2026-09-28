@@ -780,15 +780,94 @@
 
   try {
 
-    const eventId =
-      "watch_" +
-      currentUser.id +
-      "_" +
-      Date.now();
+    async function watchAd() {
+  if (!authToken || !currentUser) {
+    alert("⚠️ Please open Money Hunter20 from Telegram.");
+    return;
+  }
 
+  if (typeof show_11762706 !== "function") {
+    alert("⏳ Advertisement is still loading. Please try again.");
+    return;
+  }
+
+  const button = document.querySelector(
+    'button[onclick="watchAd()"]'
+  );
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Loading...";
+  }
+
+  try {
+
+    // Ask backend to create a secure ad event
+    const startResponse = await fetch(
+      API_URL + "/api/ad/start",
+      {
+        method: "POST",
+        headers: {
+          "Authorization":
+            "Bearer " + authToken,
+          "Content-Type":
+            "application/json"
+        }
+      }
+    );
+
+    const startData =
+      await startResponse.json();
+
+    if (
+      !startResponse.ok ||
+      !startData.ok ||
+      !startData.ymid
+    ) {
+      throw new Error(
+        startData.error ||
+        "Could not start advertisement"
+      );
+    }
+
+    const ymid = startData.ymid;
+
+    console.log(
+      "Monetag ymid:",
+      ymid
+    );
+
+    // Show Monetag rewarded interstitial
     await show_11762706({
-      ymid: eventId
+      ymid: ymid
     });
+
+    alert(
+      "✅ Advertisement completed!\n\n" +
+      "Your reward will be credited after verification."
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Monetag error:",
+      error
+    );
+
+    alert(
+      "⚠️ Advertisement could not be completed.\n" +
+      "Please try again."
+    );
+
+  } finally {
+
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Watch Ad";
+    }
+
+  }
+}
 
     /*
       IMPORTANT:
