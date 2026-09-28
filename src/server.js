@@ -1101,7 +1101,6 @@ CREATE INDEX IF NOT EXISTS idx_ad_reward_events_telegram_id
 
     console.log("Database tables are ready ✅");
 
-      console.log("Database tables are ready ✅");
   } catch (error) {
     console.error("Database setup error:", error);
   }
