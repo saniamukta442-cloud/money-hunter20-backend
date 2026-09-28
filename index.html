@@ -246,6 +246,89 @@
         font-size: 36px;
       }
     }
+    /* ===============================
+   Withdrawal Modal
+================================ */
+
+.withdraw-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .75);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.withdraw-box {
+  width: 100%;
+  max-width: 420px;
+  background: #081927;
+  border: 1px solid rgba(85, 215, 240, .45);
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 0 30px rgba(0, 210, 255, .18);
+}
+
+.withdraw-box h2 {
+  text-align: center;
+  color: #55d7f0;
+  margin-bottom: 6px;
+}
+
+.withdraw-balance {
+  text-align: center;
+  color: #ffd84d;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.withdraw-label {
+  display: block;
+  color: #aaa;
+  font-size: 12px;
+  margin: 10px 0 6px;
+}
+
+.withdraw-input,
+.withdraw-select {
+  width: 100%;
+  padding: 12px;
+  border-radius: 11px;
+  border: 1px solid #24465b;
+  background: #030c14;
+  color: white;
+  outline: none;
+  font-size: 14px;
+}
+
+.withdraw-input:focus,
+.withdraw-select:focus {
+  border-color: #55d7f0;
+}
+
+.withdraw-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.withdraw-buttons button {
+  flex: 1;
+}
+
+.cancel-button {
+  background: #26343d !important;
+  color: white !important;
+}
+
+.withdraw-message {
+  text-align: center;
+  font-size: 12px;
+  margin-top: 12px;
+  color: #55d7f0;
+}
   </style>
 </head>
 
@@ -332,6 +415,97 @@
         <span>Loading activity...</span>
       </div>
     </div>
+
+  </div>
+
+</div>
+  
+  <!-- ===============================
+     Withdrawal Modal
+================================ -->
+
+<div class="withdraw-modal" id="withdrawModal">
+
+  <div class="withdraw-box">
+
+    <h2>💸 Withdraw Earnings</h2>
+
+    <div class="withdraw-balance">
+      Available:
+      <span id="withdrawBalance">0.00</span>
+      Points
+    </div>
+
+    <label class="withdraw-label">
+      Withdrawal Amount
+    </label>
+
+    <input
+      id="withdrawAmount"
+      class="withdraw-input"
+      type="number"
+      min="50"
+      step="0.01"
+      placeholder="Minimum 50 points"
+    >
+
+    <label class="withdraw-label">
+      Payment Method
+    </label>
+
+    <select
+      id="withdrawMethod"
+      class="withdraw-select"
+    >
+      <option value="bkash">bKash</option>
+      <option value="nagad">Nagad</option>
+    </select>
+
+    <label class="withdraw-label">
+      Mobile Number
+    </label>
+
+    <input
+      id="withdrawAccount"
+      class="withdraw-input"
+      type="tel"
+      inputmode="numeric"
+      placeholder="01XXXXXXXXX"
+    >
+
+    <label class="withdraw-label">
+      Account Name
+    </label>
+
+    <input
+      id="withdrawName"
+      class="withdraw-input"
+      type="text"
+      placeholder="Your account name"
+    >
+
+    <div class="withdraw-buttons">
+
+      <button
+        class="cancel-button"
+        onclick="closeWithdraw()"
+      >
+        Cancel
+      </button>
+
+      <button
+        id="withdrawSubmit"
+        onclick="submitWithdrawal()"
+      >
+        Submit
+      </button>
+
+    </div>
+
+    <div
+      class="withdraw-message"
+      id="withdrawMessage"
+    ></div>
 
   </div>
 
@@ -650,12 +824,225 @@
     alert("✅ Referral code copied!");
   }
 
-  function withdraw() {
+  // ===============================
+// Withdrawal System
+// ===============================
+
+function withdraw() {
+
+  if (!authToken || !currentUser) {
 
     alert(
-      "💸 Withdrawal system will be connected next."
+      "⚠️ Please open Money Hunter20 from Telegram."
     );
+
+    return;
   }
+
+  document.getElementById(
+    "withdrawBalance"
+  ).textContent =
+    Number(currentUser.balance || 0).toFixed(2);
+
+  document.getElementById(
+    "withdrawModal"
+  ).style.display = "flex";
+
+}
+
+function closeWithdraw() {
+
+  document.getElementById(
+    "withdrawModal"
+  ).style.display = "none";
+
+  document.getElementById(
+    "withdrawMessage"
+  ).textContent = "";
+
+}
+
+async function submitWithdrawal() {
+
+  if (!authToken || !currentUser) {
+
+    alert(
+      "⚠️ Please login from Telegram."
+    );
+
+    return;
+  }
+
+  const amount =
+    Number(
+      document.getElementById(
+        "withdrawAmount"
+      ).value
+    );
+
+  const method =
+    document.getElementById(
+      "withdrawMethod"
+    ).value;
+
+  const accountNumber =
+    document.getElementById(
+      "withdrawAccount"
+    ).value.trim();
+
+  const accountName =
+    document.getElementById(
+      "withdrawName"
+    ).value.trim();
+
+  const message =
+    document.getElementById(
+      "withdrawMessage"
+    );
+
+  const submitButton =
+    document.getElementById(
+      "withdrawSubmit"
+    );
+
+  // ===============================
+  // Validation
+  // ===============================
+
+  if (!amount || amount < 50) {
+
+    message.textContent =
+      "⚠️ Minimum withdrawal is 50 points.";
+
+    return;
+  }
+
+  if (
+    amount >
+    Number(currentUser.balance || 0)
+  ) {
+
+    message.textContent =
+      "❌ Insufficient balance.";
+
+    return;
+  }
+
+  if (
+    !/^01[0-9]{9}$/.test(accountNumber)
+  ) {
+
+    message.textContent =
+      "⚠️ Enter a valid Bangladeshi mobile number.";
+
+    return;
+  }
+
+  if (!accountName) {
+
+    message.textContent =
+      "⚠️ Enter your account name.";
+
+    return;
+  }
+
+  // ===============================
+  // Submit
+  // ===============================
+
+  submitButton.disabled = true;
+  submitButton.textContent = "Submitting...";
+
+  message.textContent =
+    "⏳ Sending withdrawal request...";
+
+  try {
+
+    const response =
+      await fetch(
+        API_URL + "/api/withdrawals",
+        {
+          method: "POST",
+
+          headers: {
+            "Authorization":
+              "Bearer " + authToken,
+
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            amount: amount,
+            method: method,
+            accountNumber: accountNumber,
+            accountName: accountName
+          })
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !data.ok
+    ) {
+
+      throw new Error(
+        data.error ||
+        "Withdrawal request failed"
+      );
+    }
+
+    // ===============================
+    // Update Balance
+    // ===============================
+
+    currentUser.balance =
+      Number(currentUser.balance) -
+      amount;
+
+    updateUserUI();
+
+    message.textContent =
+      "✅ Withdrawal request submitted!";
+
+    document.getElementById(
+      "withdrawAmount"
+    ).value = "";
+
+    document.getElementById(
+      "withdrawAccount"
+    ).value = "";
+
+    document.getElementById(
+      "withdrawName"
+    ).value = "";
+
+    loadActivity();
+
+    setTimeout(() => {
+
+      closeWithdraw();
+
+    }, 1800);
+
+  } catch (error) {
+
+    console.error(error);
+
+    message.textContent =
+      "❌ " + error.message;
+
+  } finally {
+
+    submitButton.disabled = false;
+    submitButton.textContent = "Submit";
+
+  }
+
+}
 
   // ===============================
   // Start
