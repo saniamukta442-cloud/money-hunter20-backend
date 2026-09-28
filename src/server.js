@@ -403,6 +403,78 @@ app.get("/api/activity", authMiddleware, async (req, res) => {
 });
 
 // ===============================
+// Start Monetag Ad
+// ===============================
+
+app.post("/api/ad/start", authMiddleware, async (req, res) => {
+  try {
+    const userResult = await pool.query(
+      `
+      SELECT id, telegram_id, status
+      FROM users
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [req.user.userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        error: "User not found"
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    if (user.status !== "active") {
+      return res.status(403).json({
+        ok: false,
+        error: "User account is not active"
+      });
+    }
+
+    // Create a unique Monetag event ID
+    const ymid =
+      "mh20_" +
+      crypto.randomUUID();
+
+    await pool.query(
+      `
+      INSERT INTO ad_reward_events
+        (
+          ymid,
+          user_id,
+          telegram_id,
+          provider,
+          status
+        )
+      VALUES
+        ($1, $2, $3, 'monetag', 'pending')
+      `,
+      [
+        ymid,
+        user.id,
+        String(user.telegram_id)
+      ]
+    );
+
+    res.json({
+      ok: true,
+      ymid
+    });
+
+  } catch (error) {
+    console.error("Ad start error:", error);
+
+    res.status(500).json({
+      ok: false,
+      error: "Could not start advertisement"
+    });
+  }
+});
+
+// ===============================
 // Daily Bonus
 // ===============================
 
@@ -665,6 +737,223 @@ app.post("/api/withdrawals", authMiddleware, async (req, res) => {
 });
 
 // ===============================
+// Monetag Postback
+// ===============================
+
+app.get("/postback", async (req, res) => {
+  const {
+    ymid,
+    event,
+    reward_event_type,
+    zone_id,
+    sub_zone_id,
+    estimated_price,
+    telegram_id
+  } = req.query;
+
+  console.log("Monetag Postback received:", {
+    ymid,
+    event,
+    reward_event_type,
+    zone_id,
+    sub_zone_id,
+    estimated_price,
+    telegram_id
+  });
+
+  if (!ymid) {
+    return res.status(400).json({
+      ok: false,
+      error: "Missing ymid"
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Find the ad event created before showing the ad
+    const eventResult = await client.query(
+      `
+      SELECT
+        id,
+        user_id,
+        telegram_id,
+        status,
+        reward
+      FROM ad_reward_events
+      WHERE ymid = $1
+      FOR UPDATE
+      `,
+      [String(ymid)]
+    );
+
+    if (eventResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      console.warn(
+        "Unknown Monetag ymid:",
+        String(ymid)
+      );
+
+      return res.status(404).json({
+        ok: false,
+        error: "Unknown ad event"
+      });
+    }
+
+    const adEvent = eventResult.rows[0];
+
+    // Prevent duplicate rewards
+    if (adEvent.status === "credited") {
+      await client.query("ROLLBACK");
+
+      return res.json({
+        ok: true,
+        duplicate: true,
+        message: "Reward already credited"
+      });
+    }
+
+    // Check Telegram ID if Monetag sends it
+    if (
+      telegram_id &&
+      String(telegram_id) !== String(adEvent.telegram_id)
+    ) {
+      await client.query("ROLLBACK");
+
+      console.warn(
+        "Telegram ID mismatch for ymid:",
+        String(ymid)
+      );
+
+      return res.status(403).json({
+        ok: false,
+        error: "Telegram ID mismatch"
+      });
+    }
+
+    // Fixed reward controlled by Money Hunter20
+    const reward = Number(adEvent.reward);
+
+    // Lock user row
+    const userResult = await client.query(
+      `
+      SELECT id, balance, total_earned
+      FROM users
+      WHERE id = $1
+      FOR UPDATE
+      `,
+      [adEvent.user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(404).json({
+        ok: false,
+        error: "User not found"
+      });
+    }
+
+    // Save Monetag information
+    await client.query(
+      `
+      UPDATE ad_reward_events
+      SET
+        event = $1,
+        reward_event_type = $2,
+        zone_id = $3,
+        sub_zone_id = $4,
+        estimated_price = $5,
+        status = 'credited',
+        credited_at = CURRENT_TIMESTAMP
+      WHERE id = $6
+      `,
+      [
+        event || null,
+        reward_event_type || null,
+        zone_id || null,
+        sub_zone_id || null,
+        estimated_price
+          ? Number(estimated_price)
+          : null,
+        adEvent.id
+      ]
+    );
+
+    // Add earning transaction
+    await client.query(
+      `
+      INSERT INTO earning_transactions
+        (
+          user_id,
+          type,
+          amount,
+          description
+        )
+      VALUES
+        (
+          $1,
+          'ad_reward',
+          $2,
+          'Monetag Ad Reward'
+        )
+      `,
+      [
+        adEvent.user_id,
+        reward
+      ]
+    );
+
+    // Add balance
+    await client.query(
+      `
+      UPDATE users
+      SET
+        balance = balance + $1,
+        total_earned = total_earned + $1
+      WHERE id = $2
+      `,
+      [
+        reward,
+        adEvent.user_id
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    console.log(
+      `✅ Monetag reward credited: user=${adEvent.user_id}, reward=${reward}, ymid=${ymid}`
+    );
+
+    return res.json({
+      ok: true,
+      credited: true,
+      reward
+    });
+
+  } catch (error) {
+
+    await client.query("ROLLBACK").catch(() => {});
+
+    console.error(
+      "Monetag postback error:",
+      error
+    );
+
+    return res.status(500).json({
+      ok: false,
+      error: "Internal server error"
+    });
+
+  } finally {
+    client.release();
+  }
+});
+
+// ===============================
 // Root
 // ===============================
 
@@ -735,6 +1024,23 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
+      CREATE TABLE IF NOT EXISTS ad_reward_events (
+  id SERIAL PRIMARY KEY,
+  ymid VARCHAR(255) UNIQUE NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  telegram_id VARCHAR(50) NOT NULL,
+  provider VARCHAR(50) NOT NULL DEFAULT 'monetag',
+  event VARCHAR(100),
+  reward_event_type VARCHAR(100),
+  zone_id VARCHAR(100),
+  sub_zone_id VARCHAR(100),
+  estimated_price NUMERIC(12,6),
+  reward NUMERIC(12,2) NOT NULL DEFAULT 1.00,
+  status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  credited_at TIMESTAMP
+);
+
       CREATE TABLE IF NOT EXISTS referrals (
         id SERIAL PRIMARY KEY,
         referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -778,6 +1084,12 @@ async function initDatabase() {
 
       CREATE INDEX IF NOT EXISTS idx_ad_views_user_id
         ON ad_views(user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_ad_reward_events_user_id
+  ON ad_reward_events(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_ad_reward_events_telegram_id
+  ON ad_reward_events(telegram_id);
 
       CREATE INDEX IF NOT EXISTS idx_withdrawals_user_id
         ON withdrawals(user_id);
