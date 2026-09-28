@@ -425,4 +425,10 @@ app.use((req, res) => {
   });
 });
 
-// =================
+// ===============================
+// Start Server
+// ===============================
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Money Hunter20 Backend running on port ${PORT}`);
+});
