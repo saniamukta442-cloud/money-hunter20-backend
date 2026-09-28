@@ -426,9 +426,115 @@ app.use((req, res) => {
 });
 
 // ===============================
+// Database Setup
+// ===============================
+
+async function initDatabase() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        telegram_id VARCHAR(50) UNIQUE NOT NULL,
+        username VARCHAR(255),
+        display_name VARCHAR(255),
+        email VARCHAR(255),
+        balance NUMERIC(12,2) DEFAULT 0,
+        total_earned NUMERIC(12,2) DEFAULT 0,
+        referral_code VARCHAR(50) UNIQUE,
+        referred_by INTEGER REFERENCES users(id),
+        status VARCHAR(30) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS earning_transactions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        amount NUMERIC(12,2) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS daily_bonuses (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        amount NUMERIC(12,2) NOT NULL,
+        bonus_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, bonus_date)
+      );
+
+      CREATE TABLE IF NOT EXISTS ad_views (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        ad_provider VARCHAR(100),
+        ad_unit VARCHAR(100),
+        reward NUMERIC(12,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS referrals (
+        id SERIAL PRIMARY KEY,
+        referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        referred_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reward NUMERIC(12,2) DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(referrer_id, referred_user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS payout_methods (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        method VARCHAR(50) NOT NULL,
+        account_number VARCHAR(255) NOT NULL,
+        account_name VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS withdrawals (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        amount NUMERIC(12,2) NOT NULL,
+        method VARCHAR(50),
+        account_number VARCHAR(255),
+        status VARCHAR(30) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        processed_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS fraud_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        reason TEXT,
+        ip_address VARCHAR(100),
+        user_agent TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_earning_transactions_user_id
+        ON earning_transactions(user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_ad_views_user_id
+        ON ad_views(user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_withdrawals_user_id
+        ON withdrawals(user_id);
+
+      CREATE INDEX IF NOT EXISTS idx_referrals_referrer_id
+        ON referrals(referrer_id);
+
+      console.log("Database tables are ready ✅");
+  } catch (error) {
+    console.error("Database setup error:", error);
+  }
+}
+
+// ===============================
 // Start Server
 // ===============================
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Money Hunter20 Backend running on port ${PORT}`);
+initDatabase().then(() => {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Money Hunter20 Backend running on port ${PORT}`);
+  });
 });
