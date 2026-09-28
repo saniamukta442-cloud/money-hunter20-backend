@@ -869,26 +869,101 @@
   }
 }
 
-    /*
-      IMPORTANT:
-      Ad completed successfully.
+// ===============================
+// Watch & Earn - Monetag
+// ===============================
 
-      We will connect the server-side reward
-      endpoint here in the next step.
-    */
+async function watchAd() {
+
+  if (!authToken || !currentUser) {
+    alert("⚠️ Please open Money Hunter20 from Telegram.");
+    return;
+  }
+
+  if (typeof show_11762706 !== "function") {
+    alert("⏳ Advertisement is still loading. Please try again.");
+    return;
+  }
+
+  const button = document.querySelector(
+    'button[onclick="watchAd()"]'
+  );
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Loading...";
+  }
+
+  try {
+
+    // ===============================
+    // Step 1: Create pending ad event
+    // ===============================
+
+    console.log("🚀 Starting Monetag ad...");
+
+    const startResponse = await fetch(
+      API_URL + "/api/ad/start",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + authToken,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const startData = await startResponse.json();
+
+    if (
+      !startResponse.ok ||
+      !startData.ok ||
+      !startData.ymid
+    ) {
+      throw new Error(
+        startData.error ||
+        "Could not start advertisement"
+      );
+    }
+
+    const ymid = startData.ymid;
+
+    console.log(
+      "🆔 Monetag ad started:",
+      ymid
+    );
+
+    // ===============================
+    // Step 2: Show Monetag ad
+    // ===============================
+
+    await show_11762706({
+      ymid: ymid
+    });
+
+    console.log(
+      "✅ Monetag ad finished"
+    );
 
     alert(
-      "✅ Ad completed!\n\n" +
-      "Reward verification is being processed."
+      "✅ Advertisement completed!\n\n" +
+      "Your reward will be credited after verification."
     );
+
+    // Refresh user/activity
+    await loadMe();
+    await loadActivity();
 
   } catch (error) {
 
-    console.error("Monetag error:", error);
+    console.error(
+      "❌ Monetag error:",
+      error
+    );
 
     alert(
-      "⚠️ Advertisement could not be displayed.\n" +
-      "Please try again."
+      "⚠️ Advertisement could not be completed.\n\n" +
+      error.message
     );
 
   } finally {
