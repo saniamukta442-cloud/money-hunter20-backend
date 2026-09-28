@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Money Hunter20 — Earn Dashboard</title>
+  <style>
+    :root{
+      --bg:#070b22;--panel:#11183a;--panel2:#171f49;--cyan:#5ee7ff;
+      --purple:#8b5cf6;--yellow:#ffd45a;--text:#f7f8ff;--muted:#9ba5cc;
+      --danger:#ff6b81;--success:#56e39f;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,sans-serif;background:radial-gradient(circle at top,#22205b 0,#0b1030 42%,#050714 100%);color:var(--text)}
+    .app{max-width:760px;margin:auto;padding:18px 14px 95px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px}
+    .logo{width:44px;height:44px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,var(--cyan),var(--purple));box-shadow:0 0 25px #5ee7ff55;font-size:23px}
+    .tag{font-size:11px;color:var(--cyan);border:1px solid #5ee7ff66;border-radius:20px;padding:8px 10px}
+    .welcome,.balance,.card,.activity{background:linear-gradient(145deg,#18204b,#0f1534);border:1px solid #ffffff12;border-radius:23px;box-shadow:0 10px 30px #0003}
+    .welcome{margin-top:20px;padding:20px;display:flex;align-items:center;justify-content:space-between}
+    .muted{color:var(--muted);font-size:13px}
+    h1,h2,p{margin:0}
+    h1{font-size:22px;margin-top:5px}
+    .online{color:var(--success);font-size:12px;margin-top:9px}
+    .level{background:#33265e;color:#d8caff;border-radius:12px;padding:8px 10px;font-size:12px}
+    .balance{margin-top:14px;padding:22px;background:linear-gradient(135deg,#203d70,#22205c 55%,#391d64)}
+    .balance-top{display:flex;justify-content:space-between;align-items:center}
+    .amount{font-size:40px;font-weight:900;margin:14px 0 5px;letter-spacing:-1px}
+    .points{color:var(--yellow);font-size:13px}
+    .progress{height:9px;background:#ffffff18;border-radius:20px;overflow:hidden;margin-top:17px}
+    .progress span{display:block;width:11%;height:100%;background:linear-gradient(90deg,var(--cyan),var(--yellow));border-radius:20px}
+    .section-title{display:flex;justify-content:space-between;align-items:center;margin:24px 2px 12px}
+    .section-title h2{font-size:18px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .card{padding:18px;min-height:145px}
+    .icon{font-size:27px}
+    .card h3{font-size:15px;margin:13px 0 6px}
+    .card p{font-size:12px;color:var(--muted);line-height:1.5}
+    button{border:0;cursor:pointer;border-radius:13px;padding:11px 14px;font-weight:800;margin-top:14px;color:#081027;background:linear-gradient(90deg,var(--cyan),#a5f3fc);width:100%}
+    button.secondary{background:#ffffff12;color:var(--text);border:1px solid #ffffff18}
+    .activity{margin-top:12px;padding:18px}
+    .row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #ffffff10;font-size:13px}
+    .row:last-child{border-bottom:0}
+    .earned{color:var(--success);font-weight:800}
+    .bottom{position:fixed;bottom:0;left:0;right:0;background:#090d27ee;backdrop-filter:blur(15px);border-top:1px solid #ffffff12}
+    .nav{max-width:760px;margin:auto;display:grid;grid-template-columns:repeat(4,1fr);padding:12px 8px}
+    .nav a{text-align:center;color:var(--muted);font-size:11px;text-decoration:none}
+    .nav a span{display:block;font-size:21px;margin-bottom:4px}
+    .nav a.active{color:var(--cyan)}
+    .notice{margin-top:14px;font-size:11px;line-height:1.6;color:#b7bfdf;background:#ffffff08;padding:12px 14px;border-radius:14px}
+    @media(max-width:420px){.amount{font-size:34px}.welcome{padding:16px}.card{padding:14px}}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="brand"><div class="logo">💰</div><div>Money Hunter20<div class="muted">WATCH • EARN • WITHDRAW</div></div></div>
+      <div class="tag">Telegram Mini App</div>
+    </header>
+
+    <section class="welcome">
+      <div><div class="muted">স্বাগতম 👋</div><h1 id="username">Money Hunter</h1><div class="online">● Online now</div></div>
+      <div class="level">LEVEL 01</div>
+    </section>
+
+    <section class="balance">
+      <div class="balance-top"><span class="muted">আপনার মোট ব্যালেন্স</span><span>🪙</span></div>
+      <div class="amount" id="balance">৳0.00</div>
+      <div class="points">Available reward balance</div>
+      <div class="progress"><span id="progress"></span></div>
+      <div class="muted" style="margin-top:9px">Demo mode — real payout-এর জন্য backend ও verified ad revenue প্রয়োজন</div>
+    </section>
+
+    <div class="section-title"><h2>Earn Rewards</h2><span class="muted">আজকের কাজ</span></div>
+    <section class="grid">
+      <article class="card"><div class="icon">🎬</div><h3>Watch & Earn</h3><p>বিজ্ঞাপন/ভিডিও দেখে reward সংগ্রহ করুন।</p><button onclick="earn(0.05)">Watch Demo</button></article>
+      <article class="card"><div class="icon">🎁</div><h3>Daily Bonus</h3><p>প্রতিদিন একবার bonus claim করুন।</p><button onclick="earn(0.10)">Claim Demo</button></article>
+      <article class="card"><div class="icon">👥</div><h3>Referral</h3><p>বন্ধু আমন্ত্রণ করে referral reward পান।</p><button class="secondary" onclick="alert('Referral system backend-এ যুক্ত হবে।')">Invite</button></article>
+      <article class="card"><div class="icon">💳</div><h3>Withdraw</h3><p>Minimum threshold পূরণ হলে payout request করুন।</p><button class="secondary" onclick="alert('Withdraw system এখন Demo mode-এ আছে।')">Cashout</button></article>
+    </section>
+
+    <div class="section-title"><h2>Recent Activity</h2><span class="muted">Live demo</span></div>
+    <section class="activity" id="activity"><div class="row"><span>Account created</span><span class="muted">Just now</span></div></section>
+
+    <div class="notice">নোট: এই starter version-এ balance browser-এর memory-তে demo হিসেবে পরিবর্তিত হয়। নিরাপদ production system-এর জন্য server-side balance, user authentication, ad-network verification, fraud prevention এবং manual/automated payout review যুক্ত করতে হবে।</div>
+  </main>
+
+  <div class="bottom"><nav class="nav"><a class="active" href="#"><span>🏠</span>Home</a><a href="#earn"><span>🎬</span>Earn</a><a href="#referral"><span>👥</span>Referral</a><a href="#cashout"><span>💳</span>Cashout</a></nav></div>
+
+  <script>
+    let balance = 0;
+    function earn(amount){
+      balance += amount;
+      document.getElementById('balance').textContent = '৳' + balance.toFixed(2);
+      document.getElementById('progress').style.width = Math.min(balance / 100 * 100, 100) + '%';
+      const activity = document.getElementById('activity');
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = '<span>Demo reward added</span><span class="earned">+৳' + amount.toFixed(2) + '</span>';
+      activity.prepend(row);
+    }
+  </script>
+</body>
+</html>
