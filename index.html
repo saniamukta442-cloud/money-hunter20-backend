@@ -588,12 +588,55 @@
     );
   }
 
-  function dailyBonus() {
+  async function dailyBonus() {
+
+  if (!authToken) {
+    alert("⚠️ Please open Money Hunter20 from Telegram.");
+    return;
+  }
+
+  try {
+
+    const response = await fetch(
+      API_URL + "/api/daily-bonus",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + authToken,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      throw new Error(
+        data.error || "Daily bonus failed"
+      );
+    }
+
+    currentUser.balance = data.user.balance;
+    currentUser.total_earned = data.user.total_earned;
+
+    updateUserUI();
+    loadActivity();
 
     alert(
-      "🎁 Daily Bonus API will be connected next."
+      "🎁 Daily Bonus Claimed!\n\n" +
+      "+" + Number(data.reward).toFixed(2) +
+      " Points"
     );
+
+  } catch (error) {
+
+    alert(
+      "❌ " + error.message
+    );
+
   }
+
+}
 
   function copyReferral() {
 
