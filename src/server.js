@@ -403,6 +403,268 @@ app.get("/api/activity", authMiddleware, async (req, res) => {
 });
 
 // ===============================
+// Daily Bonus
+// ===============================
+
+app.post("/api/daily-bonus", authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const reward = 1.00;
+
+    const inserted = await client.query(
+      `
+      INSERT INTO daily_bonuses
+        (user_id, amount, bonus_date)
+      VALUES
+        ($1, $2, CURRENT_DATE)
+      ON CONFLICT (user_id, bonus_date)
+      DO NOTHING
+      RETURNING id
+      `,
+      [req.user.userId, reward]
+    );
+
+    if (inserted.rows.length === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(409).json({
+        ok: false,
+        error: "Daily bonus already claimed today"
+      });
+    }
+
+    await client.query(
+      `
+      INSERT INTO earning_transactions
+        (user_id, type, amount, description)
+      VALUES
+        ($1, 'daily_bonus', $2, 'Daily Bonus')
+      `,
+      [req.user.userId, reward]
+    );
+
+    await client.query(
+      `
+      UPDATE users
+      SET
+        balance = balance + $1,
+        total_earned = total_earned + $1
+      WHERE id = $2
+      `,
+      [reward, req.user.userId]
+    );
+
+    await client.query("COMMIT");
+
+    const user = await pool.query(
+      `
+      SELECT balance, total_earned
+      FROM users
+      WHERE id = $1
+      `,
+      [req.user.userId]
+    );
+
+    res.json({
+      ok: true,
+      reward,
+      user: user.rows[0]
+    });
+
+  } catch (error) {
+
+    await client.query("ROLLBACK").catch(() => {});
+
+    console.error("Daily bonus error:", error);
+
+    res.status(500).json({
+      ok: false,
+      error: "Could not claim daily bonus"
+    });
+
+  } finally {
+    client.release();
+  }
+});
+
+// ===============================
+// Withdrawal Request
+// ===============================
+
+app.post("/api/withdrawals", authMiddleware, async (req, res) => {
+
+  const {
+    amount,
+    method,
+    accountNumber,
+    accountName
+  } = req.body;
+
+  const requestedAmount = Number(amount);
+
+  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+    return res.status(400).json({
+      ok: false,
+      error: "Invalid withdrawal amount"
+    });
+  }
+
+  const payoutMethod = String(method || "").toLowerCase();
+
+  if (!["bkash", "nagad"].includes(payoutMethod)) {
+    return res.status(400).json({
+      ok: false,
+      error: "Only bKash and Nagad are currently supported"
+    });
+  }
+
+  if (!accountNumber || String(accountNumber).trim().length < 8) {
+    return res.status(400).json({
+      ok: false,
+      error: "Valid account number is required"
+    });
+  }
+
+  // Minimum withdrawal
+  const MIN_WITHDRAWAL = 50.00;
+
+  if (requestedAmount < MIN_WITHDRAWAL) {
+    return res.status(400).json({
+      ok: false,
+      error:
+        `Minimum withdrawal is ${MIN_WITHDRAWAL.toFixed(2)} points`
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+
+    await client.query("BEGIN");
+
+    const userResult = await client.query(
+      `
+      SELECT balance
+      FROM users
+      WHERE id = $1
+      FOR UPDATE
+      `,
+      [req.user.userId]
+    );
+
+    if (userResult.rows.length === 0) {
+
+      await client.query("ROLLBACK");
+
+      return res.status(404).json({
+        ok: false,
+        error: "User not found"
+      });
+    }
+
+    const balance = Number(userResult.rows[0].balance);
+
+    if (requestedAmount > balance) {
+
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        ok: false,
+        error: "Insufficient balance"
+      });
+    }
+
+    const payout = await client.query(
+      `
+      INSERT INTO payout_methods
+        (
+          user_id,
+          method,
+          account_number,
+          account_name
+        )
+      VALUES
+        ($1, $2, $3, $4)
+      RETURNING id
+      `,
+      [
+        req.user.userId,
+        payoutMethod,
+        String(accountNumber).trim(),
+        accountName || null
+      ]
+    );
+
+    const withdrawal = await client.query(
+      `
+      INSERT INTO withdrawals
+        (
+          user_id,
+          amount,
+          method,
+          account_number,
+          status
+        )
+      VALUES
+        ($1, $2, $3, $4, 'pending')
+      RETURNING
+        id,
+        amount,
+        method,
+        status,
+        created_at
+      `,
+      [
+        req.user.userId,
+        requestedAmount,
+        payoutMethod,
+        String(accountNumber).trim()
+      ]
+    );
+
+    // Reserve the requested balance
+    await client.query(
+      `
+      UPDATE users
+      SET balance = balance - $1
+      WHERE id = $2
+      `,
+      [
+        requestedAmount,
+        req.user.userId
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      ok: true,
+      withdrawal: withdrawal.rows[0],
+      payout_method_id: payout.rows[0].id
+    });
+
+  } catch (error) {
+
+    await client.query("ROLLBACK").catch(() => {});
+
+    console.error("Withdrawal error:", error);
+
+    res.status(500).json({
+      ok: false,
+      error: "Could not create withdrawal request"
+    });
+
+  } finally {
+
+    client.release();
+
+  }
+});
+
+// ===============================
 // Root
 // ===============================
 
