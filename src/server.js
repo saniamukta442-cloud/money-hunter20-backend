@@ -435,10 +435,7 @@ app.post("/api/ad/start", authMiddleware, async (req, res) => {
     }
 
     // Create a unique Monetag event ID
-    const ymid =
-      "mh20_" +
-      crypto.randomUUID();
-
+    const ymid = String(user.telegram_id);
     await pool.query(
       `
       INSERT INTO ad_reward_events
@@ -761,10 +758,36 @@ app.get("/postback", async (req, res) => {
     telegram_id
   });
 
-  if (!ymid) {
+  // Basic validation
+  if (!telegram_id) {
     return res.status(400).json({
       ok: false,
-      error: "Missing ymid"
+      error: "Missing telegram_id"
+    });
+  }
+
+  // Only accept our Monetag zone
+  if (String(zone_id) !== "11762706") {
+    console.warn("Invalid Monetag zone:", zone_id);
+
+    return res.status(403).json({
+      ok: false,
+      error: "Invalid zone"
+    });
+  }
+
+  // Do NOT reward ordinary impressions.
+  // Reward only when Monetag reports valued event.
+  if (String(reward_event_type).toLowerCase() !== "valued") {
+    console.log(
+      "Monetag event received but not rewarded:",
+      reward_event_type
+    );
+
+    return res.json({
+      ok: true,
+      credited: false,
+      message: "Event received but not a reward event"
     });
   }
 
@@ -773,8 +796,16 @@ app.get("/postback", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Find the ad event created before showing the ad
-    const eventResult = await client.query(
+    /*
+      Monetag is returning Telegram ID as ymid.
+
+      Therefore:
+      1. First try the exact ymid.
+      2. If not found, find the newest pending ad
+         belonging to this Telegram user.
+    */
+
+    let eventResult = await client.query(
       `
       SELECT
         id,
@@ -786,46 +817,56 @@ app.get("/postback", async (req, res) => {
       WHERE ymid = $1
       FOR UPDATE
       `,
-      [String(ymid)]
+      [String(ymid || "")]
     );
+
+    // If Monetag ymid does not match our internal ID,
+    // find the latest pending ad for this Telegram user.
+    if (eventResult.rows.length === 0) {
+      eventResult = await client.query(
+        `
+        SELECT
+          id,
+          user_id,
+          telegram_id,
+          status,
+          reward
+        FROM ad_reward_events
+        WHERE telegram_id = $1
+          AND status = 'pending'
+        ORDER BY created_at DESC
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [String(telegram_id)]
+      );
+    }
 
     if (eventResult.rows.length === 0) {
       await client.query("ROLLBACK");
 
       console.warn(
-        "Unknown Monetag ymid:",
-        String(ymid)
+        "No pending Monetag ad found for Telegram ID:",
+        String(telegram_id)
       );
 
       return res.status(404).json({
         ok: false,
-        error: "Unknown ad event"
+        error: "No pending ad event found"
       });
     }
 
     const adEvent = eventResult.rows[0];
 
-    // Prevent duplicate rewards
-    if (adEvent.status === "credited") {
-      await client.query("ROLLBACK");
-
-      return res.json({
-        ok: true,
-        duplicate: true,
-        message: "Reward already credited"
-      });
-    }
-
-    // Check Telegram ID if Monetag sends it
+    // Verify Telegram ID
     if (
-      telegram_id &&
-      String(telegram_id) !== String(adEvent.telegram_id)
+      String(adEvent.telegram_id) !== String(telegram_id)
     ) {
       await client.query("ROLLBACK");
 
       console.warn(
-        "Telegram ID mismatch for ymid:",
-        String(ymid)
+        "Telegram ID mismatch:",
+        String(telegram_id)
       );
 
       return res.status(403).json({
@@ -834,13 +875,31 @@ app.get("/postback", async (req, res) => {
       });
     }
 
-    // Fixed reward controlled by Money Hunter20
-    const reward = Number(adEvent.reward);
+    // Never reward an already credited event
+    if (adEvent.status === "credited") {
+      await client.query("ROLLBACK");
 
-    // Lock user row
+      console.log(
+        "Duplicate Monetag reward ignored:",
+        adEvent.id
+      );
+
+      return res.json({
+        ok: true,
+        credited: false,
+        duplicate: true
+      });
+    }
+
+    // Get user
     const userResult = await client.query(
       `
-      SELECT id, balance, total_earned
+      SELECT
+        id,
+        telegram_id,
+        balance,
+        total_earned,
+        status
       FROM users
       WHERE id = $1
       FOR UPDATE
@@ -857,7 +916,30 @@ app.get("/postback", async (req, res) => {
       });
     }
 
-    // Save Monetag information
+    const user = userResult.rows[0];
+
+    if (user.status !== "active") {
+      await client.query("ROLLBACK");
+
+      return res.status(403).json({
+        ok: false,
+        error: "User account is not active"
+      });
+    }
+
+    // Money Hunter20 controls the reward amount.
+    const reward = Number(adEvent.reward);
+
+    if (!Number.isFinite(reward) || reward <= 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(500).json({
+        ok: false,
+        error: "Invalid reward amount"
+      });
+    }
+
+    // Save Monetag event information
     await client.query(
       `
       UPDATE ad_reward_events
@@ -883,7 +965,7 @@ app.get("/postback", async (req, res) => {
       ]
     );
 
-    // Add earning transaction
+    // Create earning transaction
     await client.query(
       `
       INSERT INTO earning_transactions
@@ -907,7 +989,7 @@ app.get("/postback", async (req, res) => {
       ]
     );
 
-    // Add balance
+    // Add reward to balance
     await client.query(
       `
       UPDATE users
@@ -925,7 +1007,7 @@ app.get("/postback", async (req, res) => {
     await client.query("COMMIT");
 
     console.log(
-      `✅ Monetag reward credited: user=${adEvent.user_id}, reward=${reward}, ymid=${ymid}`
+      `✅ Monetag reward credited: user=${adEvent.user_id}, reward=${reward}, telegram_id=${telegram_id}`
     );
 
     return res.json({
