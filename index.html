@@ -864,8 +864,21 @@ async function watchAd() {
 
     async function dailyBonus() {
 
-  if (!authToken) {
-    alert("⚠️ Please open Money Hunterho
+  if (!authToken || !currentUser) {
+    alert("⚠️ Please open Money Hunter20 from Telegram.");
+    return;
+  }
+
+  try {
+
+    const response = await fetch(
+      API_URL + "/api/daily-bonus",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + authToken,
+          "Content-Type": "application/json"
+        }
       }
     );
 
@@ -881,22 +894,26 @@ async function watchAd() {
     currentUser.total_earned = data.user.total_earned;
 
     updateUserUI();
-    loadActivity();
+    await loadActivity();
 
     alert(
       "🎁 Daily Bonus Claimed!\n\n" +
-      "+" + Number(data.reward).toFixed(2) +
+      "+" +
+      Number(data.reward).toFixed(2) +
       " Points"
     );
 
   } catch (error) {
 
+    console.error(
+      "❌ Daily Bonus Error:",
+      error
+    );
+
     alert(
       "❌ " + error.message
     );
-
   }
-
 }
 
   function copyReferral() {
