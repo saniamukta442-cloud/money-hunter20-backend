@@ -763,7 +763,7 @@
 
 async function watchAd() {
 
-  alert("TEST: watchAd() চলছে");
+  alert("TEST 1: Watch Ad button কাজ করছে");
 
   if (!authToken || !currentUser) {
     alert("⚠️ Please open Money Hunter20 from Telegram.");
@@ -771,7 +771,7 @@ async function watchAd() {
   }
 
   if (typeof show_11762706 !== "function") {
-    alert("⏳ Advertisement is still loading. Please try again.");
+    alert("⏳ Monetag এখনও loading হচ্ছে। একটু পরে আবার চেষ্টা করুন।");
     return;
   }
 
@@ -786,10 +786,9 @@ async function watchAd() {
 
   try {
 
-    // Step 1: Create pending ad event
-    console.log("🚀 Starting Monetag ad...");
+    console.log("🚀 Calling /api/ad/start");
 
-    const startResponse = await fetch(
+    const response = await fetch(
       API_URL + "/api/ad/start",
       {
         method: "POST",
@@ -800,53 +799,56 @@ async function watchAd() {
       }
     );
 
-    const startData = await startResponse.json();
+    console.log(
+      "📡 /api/ad/start HTTP status:",
+      response.status
+    );
 
-    if (
-      !startResponse.ok ||
-      !startData.ok ||
-      !startData.ymid
-    ) {
+    const data = await response.json();
+
+    console.log(
+      "📦 /api/ad/start response:",
+      data
+    );
+
+    if (!response.ok || !data.ok || !data.ymid) {
       throw new Error(
-        startData.error ||
-        "Could not start advertisement"
+        data.error || "Could not start advertisement"
       );
     }
 
-    const ymid = startData.ymid;
+    const ymid = data.ymid;
 
     console.log(
-      "🆔 Monetag ad started:",
+      "🆔 Money Hunter20 ymid:",
       ymid
     );
 
-    // Step 2: Show Monetag rewarded ad
     await show_11762706({
       ymid: ymid
     });
 
     console.log(
-      "✅ Monetag ad finished"
+      "✅ Monetag advertisement finished"
     );
 
     alert(
       "✅ Advertisement completed!\n\n" +
-      "Your reward will be credited after verification."
+      "Reward verification চলছে..."
     );
 
-    // Refresh user/activity
     await loadMe();
     await loadActivity();
 
   } catch (error) {
 
     console.error(
-      "❌ Monetag error:",
+      "❌ Watch Ad Error:",
       error
     );
 
     alert(
-      "⚠️ Advertisement could not be completed.\n\n" +
+      "⚠️ Advertisement failed.\n\n" +
       error.message
     );
 
