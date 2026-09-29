@@ -757,119 +757,7 @@
   // Demo Buttons
   // ===============================
 
-  async function watchAd() {
-
-  if (!authToken || !currentUser) {
-    alert("⚠️ Please open Money Hunter20 from Telegram.");
-    return;
-  }
-
-  if (typeof show_11762706 !== "function") {
-    alert("⏳ Advertisement is still loading. Please try again.");
-    return;
-  }
-
-  const button = document.querySelector(
-    'button[onclick="watchAd()"]'
-  );
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Loading...";
-  }
-
-  try {
-
-    async function watchAd() {
-  if (!authToken || !currentUser) {
-    alert("⚠️ Please open Money Hunter20 from Telegram.");
-    return;
-  }
-
-  if (typeof show_11762706 !== "function") {
-    alert("⏳ Advertisement is still loading. Please try again.");
-    return;
-  }
-
-  const button = document.querySelector(
-    'button[onclick="watchAd()"]'
-  );
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = "Loading...";
-  }
-
-  try {
-
-    // Ask backend to create a secure ad event
-    const startResponse = await fetch(
-      API_URL + "/api/ad/start",
-      {
-        method: "POST",
-        headers: {
-          "Authorization":
-            "Bearer " + authToken,
-          "Content-Type":
-            "application/json"
-        }
-      }
-    );
-
-    const startData =
-      await startResponse.json();
-
-    if (
-      !startResponse.ok ||
-      !startData.ok ||
-      !startData.ymid
-    ) {
-      throw new Error(
-        startData.error ||
-        "Could not start advertisement"
-      );
-    }
-
-    const ymid = startData.ymid;
-
-    console.log(
-      "Monetag ymid:",
-      ymid
-    );
-
-    // Show Monetag rewarded interstitial
-    await show_11762706({
-      ymid: ymid
-    });
-
-    alert(
-      "✅ Advertisement completed!\n\n" +
-      "Your reward will be credited after verification."
-    );
-
-  } catch (error) {
-
-    console.error(
-      "Monetag error:",
-      error
-    );
-
-    alert(
-      "⚠️ Advertisement could not be completed.\n" +
-      "Please try again."
-    );
-
-  } finally {
-
-    if (button) {
-      button.disabled = false;
-      button.textContent = "Watch Ad";
-    }
-
-  }
-}
-
-// ===============================
+  // ===============================
 // Watch & Earn - Monetag
 // ===============================
 
@@ -896,10 +784,7 @@ async function watchAd() {
 
   try {
 
-    // ===============================
     // Step 1: Create pending ad event
-    // ===============================
-
     console.log("🚀 Starting Monetag ad...");
 
     const startResponse = await fetch(
@@ -933,10 +818,7 @@ async function watchAd() {
       ymid
     );
 
-    // ===============================
-    // Step 2: Show Monetag ad
-    // ===============================
-
+    // Step 2: Show Monetag rewarded ad
     await show_11762706({
       ymid: ymid
     });
@@ -976,23 +858,10 @@ async function watchAd() {
   }
 }
 
-  async function dailyBonus() {
+    async function dailyBonus() {
 
   if (!authToken) {
-    alert("⚠️ Please open Money Hunter20 from Telegram.");
-    return;
-  }
-
-  try {
-
-    const response = await fetch(
-      API_URL + "/api/daily-bonus",
-      {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + authToken,
-          "Content-Type": "application/json"
-        }
+    alert("⚠️ Please open Money Hunterho
       }
     );
 
