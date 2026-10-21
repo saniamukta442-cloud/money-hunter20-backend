@@ -7,6 +7,12 @@ require("dotenv").config();
 
 const app = express();
 
+const path = require("path");
+
+app.get("/app", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "index.html"));
+});
+
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
