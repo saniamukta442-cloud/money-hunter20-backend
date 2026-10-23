@@ -1,19 +1,42 @@
+
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
+const path = require("path");
+
 require("dotenv").config();
 
 const app = express();
 
-const path = require("path");
+app.use(cors({
+  origin: true,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.use(express.json({ limit: "1mb" }));
 
 app.get("/app", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "index.html"));
 });
 
-app.use(cors());
+const app = express();
+
+app.use(cors({
+  origin: true,
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.use(express.json({ limit: "1mb" }));
+
+const path = require("path");
+
+app.get("/app", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "index.html"));
+});;
 app.use(express.json({ limit: "1mb" }));
 
 // ===============================
