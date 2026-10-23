@@ -22,23 +22,6 @@ app.get("/app", (req, res) => {
   res.sendFile(path.join(__dirname, "..", "index.html"));
 });
 
-const app = express();
-
-app.use(cors({
-  origin: true,
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
-
-app.use(express.json({ limit: "1mb" }));
-
-const path = require("path");
-
-app.get("/app", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "index.html"));
-});;
-app.use(express.json({ limit: "1mb" }));
-
 // ===============================
 // Environment
 // ===============================
