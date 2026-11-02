@@ -29,6 +29,35 @@ app.get("/app", (req, res) => {
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const ADMIN_ID = process.env.ADMIN_ID;
+
+function adminMiddleware(req, res, next) {
+  try {
+    if (!ADMIN_ID) {
+      return res.status(503).json({
+        ok: false,
+        error: "ADMIN_ID is not configured"
+      });
+    }
+
+    const initData = req.headers["x-telegram-init-data"];
+    const telegramUser = verifyTelegramInitData(initData);
+
+    if (String(telegramUser.id) !== String(ADMIN_ID)) {
+      return res.status(403).json({
+        ok: false,
+        error: "Admin access denied"
+      });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      ok: false,
+      error: "Admin authentication failed"
+    });
+  }
+}
 
 if (!JWT_SECRET) {
   console.warn("WARNING: JWT_SECRET is not configured.");
@@ -152,6 +181,253 @@ function verifyTelegramInitData(initData) {
 
   return telegramUser;
 }
+
+// ===============================
+// ADMIN DASHBOARD
+// ===============================
+
+// Admin page
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "admin.html"));
+});
+
+// Dashboard statistics
+app.get("/admin/stats", adminMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM users) AS total_users,
+        (SELECT COALESCE(SUM(balance), 0) FROM users) AS total_points,
+        (SELECT COUNT(*) FROM referrals) AS total_referrals,
+        (SELECT COUNT(*) FROM withdrawals
+          WHERE status = 'pending') AS pending_withdrawals
+    `);
+
+    res.json({
+      ok: true,
+      ...result.rows[0]
+    });
+  } catch (error) {
+    console.error("Admin stats error:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Could not load dashboard statistics"
+    });
+  }
+});
+
+// User list
+app.get("/admin/users", adminMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        u.id AS user_id,
+        u.telegram_id,
+        u.username,
+        u.display_name,
+        u.balance,
+        u.total_earned,
+        u.status,
+        u.created_at,
+        COUNT(r.id)::INTEGER AS referrals
+      FROM users u
+      LEFT JOIN referrals r ON r.referrer_id = u.id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+      LIMIT 100
+    `);
+
+    res.json({
+      ok: true,
+      users: result.rows
+    });
+  } catch (error) {
+    console.error("Admin users error:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Could not load users"
+    });
+  }
+});
+
+// Withdrawal list
+app.get("/admin/withdrawals", adminMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        w.id,
+        w.user_id,
+        u.telegram_id,
+        u.username,
+        w.amount,
+        w.method,
+        w.account_number,
+        w.status,
+        w.created_at
+      FROM withdrawals w
+      JOIN users u ON u.id = w.user_id
+      ORDER BY
+        CASE WHEN w.status = 'pending' THEN 0 ELSE 1 END,
+        w.created_at DESC
+      LIMIT 100
+    `);
+
+    res.json({
+      ok: true,
+      withdrawals: result.rows
+    });
+  } catch (error) {
+    console.error("Admin withdrawals error:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Could not load withdrawals"
+    });
+  }
+});
+
+// Approve or reject withdrawal
+app.post(
+  "/admin/withdrawal/update",
+  adminMiddleware,
+  async (req, res) => {
+    const withdrawalId = Number(req.body.id);
+    const newStatus = String(req.body.status || "");
+
+    if (
+      !Number.isInteger(withdrawalId) ||
+      withdrawalId <= 0 ||
+      !["approved", "rejected"].includes(newStatus)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Invalid withdrawal request"
+      });
+    }
+
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query(
+        `SELECT id, user_id, amount, status
+         FROM withdrawals
+         WHERE id = $1
+         FOR UPDATE`,
+        [withdrawalId]
+      );
+
+      if (result.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          ok: false,
+          error: "Withdrawal not found"
+        });
+      }
+
+      const withdrawal = result.rows[0];
+
+      if (withdrawal.status !== "pending") {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          ok: false,
+          error: "This withdrawal was already processed"
+        });
+      }
+
+      if (newStatus === "rejected") {
+        await client.query(
+          `UPDATE users
+           SET balance = balance + $1
+           WHERE id = $2`,
+          [withdrawal.amount, withdrawal.user_id]
+        );
+
+        await client.query(
+          `INSERT INTO earning_transactions
+           (user_id, type, amount, description)
+           VALUES ($1, 'withdrawal_refund', $2, $3)`,
+          [
+            withdrawal.user_id,
+            withdrawal.amount,
+            "Withdrawal rejected - balance refunded"
+          ]
+        );
+      }
+
+      await client.query(
+        `UPDATE withdrawals
+         SET status = $1,
+             processed_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [newStatus, withdrawalId]
+      );
+
+      await client.query("COMMIT");
+
+      res.json({
+        ok: true,
+        message: `Withdrawal ${newStatus}`
+      });
+
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("Withdrawal update error:", error);
+
+      res.status(500).json({
+        ok: false,
+        error: "Could not update withdrawal"
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// Activate or block user
+app.post("/admin/user/status", adminMiddleware, async (req, res) => {
+  try {
+    const userId = Number(req.body.userId);
+    const status = String(req.body.status || "");
+
+    if (
+      !Number.isInteger(userId) ||
+      userId <= 0 ||
+      !["active", "blocked"].includes(status)
+    ) {
+      return res.status(400).json({
+        ok: false,
+        error: "Invalid user or status"
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE users
+       SET status = $1
+       WHERE id = $2
+       RETURNING id, status`,
+      [status, userId]
+    );
+
+    if (!result.rowCount) {
+      return res.status(404).json({
+        ok: false,
+        error: "User not found"
+      });
+    }
+
+    res.json({
+      ok: true,
+      user: result.rows[0]
+    });
+  } catch (error) {
+    console.error("User status error:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Could not update user"
+    });
+  }
+});
 
 // ===============================
 // Authentication middleware
