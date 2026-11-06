@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Money Hunter Admin</title>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #160b2d;
+      color: white;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 18px;
+    }
+
+    h1 {
+      margin-bottom: 5px;
+    }
+
+    .sub {
+      color: #b9acd0;
+      margin-bottom: 20px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: #24143d;
+      border-radius: 16px;
+      padding: 18px;
+      border: 1px solid #3b2758;
+    }
+
+    .number {
+      font-size: 28px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+
+    .section-title {
+      margin: 25px 0 12px;
+    }
+
+    .user {
+      margin-bottom: 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 7px;
+    }
+
+    .small {
+      color: #b9acd0;
+      font-size: 13px;
+    }
+
+    .withdraw {
+      margin-bottom: 12px;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 8px;
+      background: #49355f;
+      font-size: 12px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #b9acd0;
+    }
+
+    .error {
+      background: #4a1930;
+      padding: 14px;
+      border-radius: 12px;
+      color: #ffd5df;
+    }
+
+    @media(max-width:500px) {
+      .stats {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .container {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>👑 Admin Dashboard</h1>
+  <div class="sub">Money Hunter Management</div>
+
+  <div id="message" class="loading">
+    Loading...
+  </div>
+
+  <div id="dashboard" style="display:none;">
+
+    <div class="stats">
+
+      <div class="card">
+        👥 Total Users
+        <div class="number" id="totalUsers">0</div>
+      </div>
+
+      <div class="card">
+        💰 Total Points
+        <div class="number" id="totalPoints">0</div>
+      </div>
+
+      <div class="card">
+        👤 Total Referrals
+        <div class="number" id="totalReferrals">0</div>
+      </div>
+
+      <div class="card">
+        💸 Pending Withdraw
+        <div class="number" id="pendingWithdrawals">0</div>
+      </div>
+
+    </div>
+
+    <h2 class="section-title">👥 Users</h2>
+    <div id="users"></div>
+
+    <h2 class="section-title">💸 Withdrawal Requests</h2>
+    <div id="withdrawals"></div>
+
+  </div>
+
+</div>
+
+<script>
+
+const tg = window.Telegram.WebApp;
+
+tg.ready();
+tg.expand();
+
+const API = "https://money-hunter20-backend.onrender.com";
+async function loadAdmin() {
+
+  try {
+
+    const headers = {
+      "X-Telegram-Init-Data": tg.initData
+    };
+
+    const statsResponse = await fetch(
+      API + "/admin/stats",
+      {
+        headers: headers
+      }
+    );
+
+    const statsText = await statsResponse.text();
+
+if (!statsResponse.ok) {
+  throw new Error(
+    "Stats API Error " +
+    statsResponse.status +
+    ": " +
+    statsText.substring(0, 200)
+  );
+}
+
+const stats = JSON.parse(statsText);
+
+    if (!statsResponse.ok || !stats.ok) {
+      throw new Error(
+        stats.error || "Admin access denied"
+      );
+    }
+
+    document.getElementById("totalUsers").textContent =
+      stats.total_users;
+
+    document.getElementById("totalPoints").textContent =
+      stats.total_points;
+
+    document.getElementById("totalReferrals").textContent =
+      stats.total_referrals;
+
+    document.getElementById("pendingWithdrawals").textContent =
+      stats.pending_withdrawals;
+
+    const usersResponse = await fetch(
+      API + "/admin/users",
+      {
+        headers: headers
+      }
+    );
+
+    const usersData = await usersResponse.json();
+
+    if (!usersResponse.ok || !usersData.ok) {
+      throw new Error(
+        usersData.error || "Users load failed"
+      );
+    }
+
+    const usersBox =
+      document.getElementById("users");
+
+    usersBox.innerHTML = "";
+
+    if (usersData.users.length === 0) {
+
+      usersBox.innerHTML =
+        '<div class="card">কোনো User পাওয়া যায়নি।</div>';
+
+    } else {
+
+      usersData.users.forEach(user => {
+
+        usersBox.innerHTML += `
+          <div class="card user">
+
+            <div class="row">
+              <strong>👤 User ID</strong>
+              <span>${user.user_id}</span>
+            </div>
+
+            <div class="row">
+              <span>💰 Balance</span>
+              <strong>${user.balance} Points</strong>
+            </div>
+
+            <div class="row">
+              <span>👥 Referrals</span>
+              <span>${user.referrals}</span>
+            </div>
+
+          </div>
+        `;
+
+      });
+    }
+
+    const withdrawalResponse = await fetch(
+      API + "/admin/withdrawals",
+      {
+        headers: headers
+      }
+    );
+
+    const withdrawalData =
+      await withdrawalResponse.json();
+
+    if (
+      !withdrawalResponse.ok ||
+      !withdrawalData.ok
+    ) {
+      throw new Error(
+        withdrawalData.error ||
+        "Withdrawals load failed"
+      );
+    }
+
+    const withdrawalBox =
+      document.getElementById("withdrawals");
+
+    withdrawalBox.innerHTML = "";
+
+    if (withdrawalData.withdrawals.length === 0) {
+
+      withdrawalBox.innerHTML =
+        '<div class="card">কোনো Withdrawal Request নেই।</div>';
+
+    } else {
+
+      withdrawalData.withdrawals.forEach(item => {
+
+  let actionButtons = "";
+
+  if (item.status === "pending") {
+    actionButtons = `
+      <div style="margin-top:12px; display:flex; gap:10px;">
+        <button
+          onclick="updateWithdrawal(${item.id}, 'approved')"
+          style="flex:1; padding:10px; border:0; border-radius:8px;">
+          ✅ Approve
+        </button>
+
+        <button
+          onclick="updateWithdrawal(${item.id}, 'rejected')"
+          style="flex:1; padding:10px; border:0; border-radius:8px;">
+          ❌ Reject
+        </button>
+      </div>
+    `;
+  }
+
+  withdrawalBox.innerHTML += `
+    <div class="card withdraw">
+
+      <div class="row">
+        <strong>👤 User</strong>
+        <span>${item.user_id}</span>
+      </div>
+
+      <div class="row">
+        <span>💰 Amount</span>
+        <strong>${item.amount} Points</strong>
+      </div>
+
+      <div class="row">
+        <span>📱 bKash</span>
+        <span>${item.bkash}</span>
+      </div>
+
+      <div class="row">
+        <span>Status</span>
+        <span class="status">${item.status}</span>
+      </div>
+
+      ${actionButtons}
+
+    </div>
+  `;
+
+});
+    }
+
+    document.getElementById("message").style.display =
+      "none";
+
+    document.getElementById("dashboard").style.display =
+      "block";
+
+  } catch (error) {
+
+    document.getElementById("message").innerHTML =
+      '<div class="error">❌ ' +
+      error.message +
+      '</div>';
+
+  }
+}
+async function updateWithdrawal(id, status) {
+
+  try {
+
+    const response = await fetch(
+      API + "/admin/withdrawal/update",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Telegram-Init-Data": tg.initData
+        },
+        body: JSON.stringify({
+          id: id,
+          status: status
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      throw new Error(
+        data.error || "Update failed"
+      );
+    }
+
+    alert(
+      status === "approved"
+        ? "✅ Withdrawal Approved"
+        : "❌ Withdrawal Rejected"
+    );
+
+    loadAdmin();
+
+  } catch (error) {
+
+    alert("❌ " + error.message);
+
+  }
+}
+loadAdmin();
+
+</script>
+
+</body>
+</html>
