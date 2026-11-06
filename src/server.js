@@ -13,7 +13,11 @@ const app = express();
 app.use(cors({
   origin: true,
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: [
+  "Content-Type",
+  "Authorization",
+  "X-Telegram-Init-Data"
+]
 }));
 
 app.use(express.json({ limit: "1mb" }));
